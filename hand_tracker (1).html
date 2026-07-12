@@ -1,0 +1,492 @@
+<div id="ht-root">
+  <style>
+    #ht-root {
+      --bg: #0a0e14;
+      --panel: #10161f;
+      --line: #1c2733;
+      --cyan: #4ee6d6;
+      --amber: #ffb454;
+      --pink: #ff6b9d;
+      --text: #d8e2ea;
+      --muted: #6b7c8e;
+      font-family: 'Space Grotesk', 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      border-radius: 16px;
+      padding: 18px;
+      max-width: 900px;
+      margin: 0 auto;
+      box-sizing: border-box;
+    }
+    #ht-root * { box-sizing: border-box; }
+
+    .ht-header {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .ht-title {
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      color: #fff;
+      margin: 0;
+    }
+    .ht-title span { color: var(--cyan); }
+    .ht-sub {
+      font-size: 12px;
+      color: var(--muted);
+      margin: 2px 0 0 0;
+    }
+    .ht-status {
+      font-size: 11px;
+      padding: 5px 10px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: var(--panel);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      white-space: nowrap;
+    }
+    .ht-dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--muted);
+      transition: background 0.2s;
+    }
+    .ht-dot.live { background: var(--cyan); box-shadow: 0 0 8px var(--cyan); }
+    .ht-dot.err { background: var(--pink); }
+
+    .ht-stage {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 4 / 3;
+      background: #000;
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid var(--line);
+    }
+    .ht-stage video, .ht-stage canvas {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      transform: scaleX(-1);
+    }
+    .ht-stage video { object-fit: cover; }
+
+    .ht-overlay-msg {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      text-align: center;
+      padding: 20px;
+      background: radial-gradient(circle at center, #131b26 0%, #0a0e14 100%);
+      z-index: 5;
+    }
+    .ht-overlay-msg p { color: var(--muted); font-size: 13px; max-width: 320px; margin: 0; }
+
+    .ht-btn {
+      background: var(--cyan);
+      color: #06120f;
+      border: none;
+      font-weight: 700;
+      font-size: 14px;
+      padding: 10px 22px;
+      border-radius: 999px;
+      cursor: pointer;
+      transition: transform 0.15s, box-shadow 0.15s;
+    }
+    .ht-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(78,230,214,0.35); }
+    .ht-btn:active { transform: translateY(0); }
+    .ht-btn:disabled { opacity: 0.5; cursor: default; transform: none; box-shadow: none; }
+    .ht-btn.secondary {
+      background: transparent;
+      color: var(--text);
+      border: 1px solid var(--line);
+    }
+
+    .ht-controls {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .ht-stats {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-top: 14px;
+    }
+    .ht-card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 10px 12px;
+    }
+    .ht-card .k { font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+    .ht-card .v { font-size: 20px; font-weight: 700; color: #fff; margin-top: 2px; }
+    .ht-card .v.accent { color: var(--amber); }
+    .ht-card .v.pink { color: var(--pink); }
+
+    .ht-fingers {
+      display: flex;
+      gap: 6px;
+      margin-top: 4px;
+    }
+    .ht-finger-pill {
+      flex: 1;
+      text-align: center;
+      font-size: 10px;
+      padding: 4px 0;
+      border-radius: 6px;
+      background: #182231;
+      color: var(--muted);
+      border: 1px solid var(--line);
+    }
+    .ht-finger-pill.up {
+      background: rgba(78,230,214,0.12);
+      color: var(--cyan);
+      border-color: var(--cyan);
+    }
+
+    .ht-footer {
+      margin-top: 10px;
+      font-size: 11px;
+      color: var(--muted);
+      text-align: center;
+    }
+  </style>
+
+  <div class="ht-header">
+    <div>
+      <p class="ht-title">Hand<span>Track</span></p>
+      <p class="ht-sub">Live webcam finger &amp; hand tracking · 21-point landmarks</p>
+    </div>
+    <div class="ht-status">
+      <div class="ht-dot" id="htDot"></div>
+      <span id="htStatusText">Camera off</span>
+    </div>
+  </div>
+
+  <div class="ht-stage" id="htStage">
+    <video id="htVideo" autoplay playsinline muted></video>
+    <canvas id="htCanvas"></canvas>
+    <div class="ht-overlay-msg" id="htOverlay">
+      <p id="htOverlayText">Camera se live hand aur finger tracking. Button dabao aur apna haath camera ke saamne dikhao.</p>
+      <button class="ht-btn" id="htStart">Camera Start Karo</button>
+      <p id="htHint" style="font-size:11px; color:var(--muted); max-width:340px; display:none;"></p>
+      <p style="font-size:11px; color:var(--muted); margin-top:8px; letter-spacing:0.03em;">This App created by <span style="color:var(--cyan); font-weight:600;">Toushif Ansari</span></p>
+    </div>
+  </div>
+
+  <div class="ht-controls">
+    <button class="ht-btn secondary" id="htStop" disabled>Stop</button>
+  </div>
+
+  <div class="ht-stats">
+    <div class="ht-card">
+      <div class="k">Hands Detected</div>
+      <div class="v" id="htHandCount">0</div>
+    </div>
+    <div class="ht-card">
+      <div class="k">Fingers Up</div>
+      <div class="v accent" id="htFingerCount">0</div>
+    </div>
+    <div class="ht-card">
+      <div class="k">Gesture</div>
+      <div class="v pink" id="htGesture">—</div>
+    </div>
+  </div>
+
+  <div class="ht-card" style="margin-top:10px;">
+    <div class="k">Finger Status (right-most hand)</div>
+    <div class="ht-fingers" id="htFingerPills">
+      <div class="ht-finger-pill">Thumb</div>
+      <div class="ht-finger-pill">Index</div>
+      <div class="ht-finger-pill">Middle</div>
+      <div class="ht-finger-pill">Ring</div>
+      <div class="ht-finger-pill">Pinky</div>
+    </div>
+  </div>
+
+  <div class="ht-footer">Sab kuch aapke browser mein hi chalta hai — video kahin upload nahi hota.<br>App by <strong style="color:var(--cyan);">Toushif Ansari</strong></div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mediapipe/0.4.1675469240/hands.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mediapipe/0.3.1675466862/camera_utils.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mediapipe/0.3.1620248257/drawing_utils.js"></script>
+
+<script>
+(function () {
+  const root = document.getElementById('ht-root');
+  const video = document.getElementById('htVideo');
+  const canvas = document.getElementById('htCanvas');
+  const ctx = canvas.getContext('2d');
+  const startBtn = document.getElementById('htStart');
+  const stopBtn = document.getElementById('htStop');
+  const overlay = document.getElementById('htOverlay');
+  const dot = document.getElementById('htDot');
+  const statusText = document.getElementById('htStatusText');
+  const handCountEl = document.getElementById('htHandCount');
+  const fingerCountEl = document.getElementById('htFingerCount');
+  const gestureEl = document.getElementById('htGesture');
+  const pillsWrap = document.getElementById('htFingerPills');
+
+  let camera = null;
+  let hands = null;
+  let running = false;
+
+  const FINGER_TIPS = [4, 8, 12, 16, 20];
+  const FINGER_NAMES = ['Thumb', 'Index', 'Middle', 'Ring', 'Pinky'];
+
+  function setStatus(text, cls) {
+    statusText.textContent = text;
+    dot.className = 'ht-dot' + (cls ? ' ' + cls : '');
+  }
+
+  function resizeCanvas() {
+    canvas.width = canvas.clientWidth;
+    canvas.height = canvas.clientHeight;
+  }
+
+  function countFingers(landmarks, handedness) {
+    // Returns array of booleans [thumb, index, middle, ring, pinky]
+    const up = [];
+    // Thumb: compare tip x to ip joint x, flipped depending on handedness (mirrored view)
+    const thumbTip = landmarks[4];
+    const thumbIp = landmarks[3];
+    if (handedness === 'Right') {
+      up.push(thumbTip.x < thumbIp.x);
+    } else {
+      up.push(thumbTip.x > thumbIp.x);
+    }
+    // Other 4 fingers: tip.y < pip.y means finger is up (since y grows downward)
+    const tipsPips = [[8, 6], [12, 10], [16, 14], [20, 18]];
+    for (const [tip, pip] of tipsPips) {
+      up.push(landmarks[tip].y < landmarks[pip].y);
+    }
+    return up;
+  }
+
+  function detectGesture(upArr, totalUp) {
+    const [thumb, index, middle, ring, pinky] = upArr;
+    if (totalUp === 0) return 'Fist ✊';
+    if (totalUp === 5) return 'Open Palm ✋';
+    if (index && !middle && !ring && !pinky) return 'Pointing ☝️';
+    if (index && middle && !ring && !pinky && !thumb) return 'Peace ✌️';
+    if (thumb && !index && !middle && !ring && !pinky) return 'Thumbs Up 👍';
+    if (thumb && pinky && !index && !middle && !ring) return 'Call Me 🤙';
+    return totalUp + ' Fingers';
+  }
+
+  function onResults(results) {
+    resizeCanvas();
+    ctx.save();
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    const handCount = results.multiHandLandmarks ? results.multiHandLandmarks.length : 0;
+    handCountEl.textContent = handCount;
+
+    if (handCount === 0) {
+      fingerCountEl.textContent = '0';
+      gestureEl.textContent = '—';
+      updatePills([false, false, false, false, false]);
+      ctx.restore();
+      return;
+    }
+
+    let lastUpArr = [false, false, false, false, false];
+    let lastTotal = 0;
+
+    for (let i = 0; i < results.multiHandLandmarks.length; i++) {
+      const landmarks = results.multiHandLandmarks[i];
+      const handedness = results.multiHandedness && results.multiHandedness[i]
+        ? results.multiHandedness[i].label
+        : 'Right';
+
+      const colorMain = i === 0 ? '#4ee6d6' : '#ff6b9d';
+
+      if (window.drawConnectors && window.HAND_CONNECTIONS) {
+        window.drawConnectors(ctx, landmarks, window.HAND_CONNECTIONS, { color: colorMain, lineWidth: 3 });
+      }
+      if (window.drawLandmarks) {
+        window.drawLandmarks(ctx, landmarks, { color: '#ffb454', lineWidth: 1, radius: 4 });
+      }
+
+      const upArr = countFingers(landmarks, handedness);
+      const total = upArr.filter(Boolean).length;
+      lastUpArr = upArr;
+      lastTotal = total;
+
+      // label fingertip numbers
+      ctx.fillStyle = '#fff';
+      ctx.font = '12px sans-serif';
+    }
+
+    fingerCountEl.textContent = lastTotal;
+    gestureEl.textContent = detectGesture(lastUpArr, lastTotal);
+    updatePills(lastUpArr);
+
+    ctx.restore();
+  }
+
+  function updatePills(upArr) {
+    const pills = pillsWrap.querySelectorAll('.ht-finger-pill');
+    pills.forEach((p, idx) => {
+      p.textContent = FINGER_NAMES[idx];
+      if (upArr[idx]) p.classList.add('up');
+      else p.classList.remove('up');
+    });
+  }
+
+  const overlayText = document.getElementById('htOverlayText');
+  const hint = document.getElementById('htHint');
+
+  function showHint(msg) {
+    hint.textContent = msg;
+    hint.style.display = 'block';
+  }
+
+  function explainError(err) {
+    const name = err && err.name ? err.name : '';
+    const msg = err && err.message ? err.message : String(err);
+
+    if (!window.isSecureContext) {
+      return {
+        title: 'Camera block ho gaya: unsafe connection',
+        hint: 'Camera sirf HTTPS ya localhost par kaam karta hai. Ye page http:// par khula hai — URL check karo ya HTML file download karke seedha browser mein kholo.'
+      };
+    }
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      return {
+        title: 'Camera block ho gaya: is jagah support nahi hai',
+        hint: 'Ye page ek embedded/sandboxed frame mein khula hai jaha camera allow nahi hai. Neeche diye "Download" button se HTML file save karo aur use apne browser mein directly (Chrome/Edge) kholo — tab camera kaam karega.'
+      };
+    }
+    if (name === 'NotAllowedError' || name === 'PermissionDeniedError') {
+      return {
+        title: 'Camera permission deny hui',
+        hint: 'Browser ke address bar mein camera icon par click karke "Allow" karo, phir page reload karke dobara try karo.'
+      };
+    }
+    if (name === 'NotFoundError' || name === 'DevicesNotFoundError') {
+      return {
+        title: 'Koi camera nahi mila',
+        hint: 'Device mein camera connected/enabled hai ye check karo, ya kisi doosre app ne camera lock to nahi kiya hua.'
+      };
+    }
+    if (name === 'NotReadableError' || name === 'TrackStartError') {
+      return {
+        title: 'Camera kisi aur app mein use ho raha hai',
+        hint: 'Zoom, Meet, ya koi doosra app camera use kar raha ho to use band karo aur dobara try karo.'
+      };
+    }
+    if (name === 'SecurityError') {
+      return {
+        title: 'Security policy ne camera block kiya',
+        hint: 'Ye artifact/iframe environment camera allow nahi kar raha. HTML file download karke directly browser mein kholo.'
+      };
+    }
+    return {
+      title: 'Camera access fail hui',
+      hint: msg || 'Browser permissions check karo aur dobara try karo. Agar ye artifact ke andar embedded hai to file download karke seedha browser mein khol kar try karo.'
+    };
+  }
+
+  async function start() {
+    startBtn.disabled = true;
+    hint.style.display = 'none';
+    setStatus('Camera shuru ho rahi hai…', '');
+    try {
+      if (!window.isSecureContext) {
+        throw Object.assign(new Error('Insecure context'), { name: 'SecurityError' });
+      }
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw Object.assign(new Error('getUserMedia unavailable'), { name: 'NotSupportedError' });
+      }
+
+      // Request camera access directly first — gives us the real error reason
+      // and confirms permission before MediaPipe's Camera helper tries again.
+      const testStream = await navigator.mediaDevices.getUserMedia({
+        video: { width: 640, height: 480, facingMode: 'user' },
+        audio: false
+      });
+      video.srcObject = testStream;
+      await video.play();
+
+      hands = new Hands({
+        locateFile: (file) => `https://cdnjs.cloudflare.com/ajax/libs/mediapipe/0.4.1675469240/${file}`
+      });
+      hands.setOptions({
+        maxNumHands: 2,
+        modelComplexity: 1,
+        minDetectionConfidence: 0.6,
+        minTrackingConfidence: 0.6
+      });
+      hands.onResults(onResults);
+
+      let processing = false;
+      async function frameLoop() {
+        if (!running) return;
+        if (!processing) {
+          processing = true;
+          try {
+            await hands.send({ image: video });
+          } catch (e) {
+            console.error('frame error', e);
+          }
+          processing = false;
+        }
+        requestAnimationFrame(frameLoop);
+      }
+
+      running = true;
+      overlay.style.display = 'none';
+      stopBtn.disabled = false;
+      setStatus('Live tracking', 'live');
+      resizeCanvas();
+      requestAnimationFrame(frameLoop);
+    } catch (err) {
+      console.error(err);
+      const info = explainError(err);
+      setStatus(info.title, 'err');
+      overlayText.textContent = info.title;
+      showHint(info.hint);
+      startBtn.disabled = false;
+      overlay.style.display = 'flex';
+    }
+  }
+
+  function stop() {
+    running = false;
+    const stream = video.srcObject;
+    if (stream) {
+      stream.getTracks().forEach((t) => t.stop());
+      video.srcObject = null;
+    }
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    handCountEl.textContent = '0';
+    fingerCountEl.textContent = '0';
+    gestureEl.textContent = '—';
+    updatePills([false, false, false, false, false]);
+    overlay.style.display = 'flex';
+    hint.style.display = 'none';
+    overlayText.textContent = 'Camera se live hand aur finger tracking. Button dabao aur apna haath camera ke saamne dikhao.';
+    startBtn.disabled = false;
+    stopBtn.disabled = true;
+    setStatus('Camera off', '');
+  }
+
+  startBtn.addEventListener('click', start);
+  stopBtn.addEventListener('click', stop);
+  window.addEventListener('resize', resizeCanvas);
+})();
+</script>
