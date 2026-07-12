@@ -220,9 +220,9 @@
   <div class="ht-footer">Sab kuch aapke browser mein hi chalta hai — video kahin upload nahi hota.<br>App by <strong style="color:var(--cyan);">Toushif Ansari</strong></div>
 </div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/mediapipe/0.4.1675469240/hands.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/mediapipe/0.3.1675466862/camera_utils.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/mediapipe/0.3.1620248257/drawing_utils.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
 
 <script>
 (function () {
@@ -371,6 +371,12 @@
         hint: 'Ye page ek embedded/sandboxed frame mein khula hai jaha camera allow nahi hai. Neeche diye "Download" button se HTML file save karo aur use apne browser mein directly (Chrome/Edge) kholo — tab camera kaam karega.'
       };
     }
+    if (name === 'LibraryLoadError') {
+      return {
+        title: 'Tracking library load nahi hui',
+        hint: 'Internet connection check karo aur page reload karo. Agar phir bhi na ho to kuch seconds wait karke dobara try karo.'
+      };
+    }
     if (name === 'NotAllowedError' || name === 'PermissionDeniedError') {
       return {
         title: 'Camera permission deny hui',
@@ -413,6 +419,10 @@
         throw Object.assign(new Error('getUserMedia unavailable'), { name: 'NotSupportedError' });
       }
 
+      if (typeof Hands === 'undefined') {
+        throw Object.assign(new Error('MediaPipe library load nahi hui'), { name: 'LibraryLoadError' });
+      }
+
       // Request camera access directly first — gives us the real error reason
       // and confirms permission before MediaPipe's Camera helper tries again.
       const testStream = await navigator.mediaDevices.getUserMedia({
@@ -423,7 +433,7 @@
       await video.play();
 
       hands = new Hands({
-        locateFile: (file) => `https://cdnjs.cloudflare.com/ajax/libs/mediapipe/0.4.1675469240/${file}`
+        locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
       });
       hands.setOptions({
         maxNumHands: 2,
